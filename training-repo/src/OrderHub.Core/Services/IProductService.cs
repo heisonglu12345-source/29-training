@@ -1,4 +1,5 @@
 using OrderHub.Core.Domain;
+using OrderHub.Core.Models;
 
 namespace OrderHub.Core.Services;
 
@@ -6,4 +7,5 @@ public interface IProductService
 {
     Task<IReadOnlyList<Product>> GetAllAsync();
     Task<IReadOnlyList<Product>> GetActiveAsync();
+    Task<IReadOnlyList<LowStockProduct>> GetLowStockAsync(int threshold);
 }
