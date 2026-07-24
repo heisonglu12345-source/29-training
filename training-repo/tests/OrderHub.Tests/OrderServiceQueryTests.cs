@@ -41,6 +41,39 @@ public class OrderServiceQueryTests
     }
 
     [Fact]
+    public async Task GetOrders_PaginatesFromNewestOrderAndPopulatesLastPage()
+    {
+        using var db = TestSetup.CreateContext();
+        var service = TestSetup.CreateOrderService(db);
+        var customer = TestSetup.AddCustomer(db);
+        var orders = Enumerable.Range(0, 45)
+            .Select(i => new Order
+            {
+                CustomerId = customer.Id,
+                Status = OrderStatus.Confirmed,
+                CreatedAt = DateTime.UtcNow.AddMinutes(-i)
+            })
+            .ToList();
+
+        db.Orders.AddRange(orders);
+        db.SaveChanges();
+
+        var firstPage = await service.GetOrdersAsync(1, 20, null);
+        var secondPage = await service.GetOrdersAsync(2, 20, null);
+        var lastPage = await service.GetOrdersAsync(3, 20, null);
+        var returnedOrderIds = firstPage.Items
+            .Concat(secondPage.Items)
+            .Concat(lastPage.Items)
+            .Select(o => o.Id)
+            .ToList();
+
+        Assert.Equal(orders[0].Id, firstPage.Items[0].Id);
+        Assert.Equal(5, lastPage.Items.Count);
+        Assert.Contains(orders[^1].Id, lastPage.Items.Select(o => o.Id));
+        Assert.Equal(45, returnedOrderIds.Distinct().Count());
+    }
+
+    [Fact]
     public async Task GetCustomerOrders_ReturnsOnlyThatCustomersOrders()
     {
         using var db = TestSetup.CreateContext();
