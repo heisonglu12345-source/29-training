@@ -54,3 +54,25 @@
 
 - `dotnet build src/OrderHub.Mcp -m:1`：成功，0 warning、0 error。
 - `dotnet test --no-restore -m:1`：34/34 通過；既有取消訂單測試涵蓋 Pending／Confirmed 成功、庫存回補、Shipped／Cancelled 拒絕與不存在訂單。
+
+## 活動 2／練習 5 — Resources 與 Prompts
+
+### Inspector 與 Codex 等效驗證
+
+- MCP Inspector 2.1.0 的 `resources/list` 列出「會員折扣規則」，URI 為 `orderhub://discount-rules`，MIME type 為 `text/markdown`；`resources/read` 可讀到 Standard、Silver、Gold 三種折扣規則。
+- 將 Inspector 讀出的 Resource 內容交給全新 Codex session，再問「Gold 會員買 1000 元商品應付多少？」；agent 沒有讀程式碼或呼叫工具，回答 9 折、應付 900 元。
+- `prompts/list` 列出 `low_stock_report`，`threshold` 是非必填參數；`prompts/get(threshold=5)` 正確將門檻展開到訊息中。
+- 將展開後的 Prompt 交給全新 Codex session，agent 呼叫一次 `mcp__orderhub__low_stock(threshold=5)`，並對 5 筆商品產出 SKU、名稱、現有庫存、建議補貨量與理由表格。
+- 現有工具無法依商品或 SKU 查近期訂單，agent 因此明確標示資料限制，只提出補至門檻 5 的最低安全補貨量，沒有捏造近期銷量。
+
+### Tool、Resource、Prompt 的分工思考
+
+- Tool 是動作：需要參數並執行查詢、計算或資料異動，例如 `low_stock`、`cancel_order`。
+- Resource 是可放入 context 的資料。相較於讓 agent 自行讀 `OrderService.cs`，`discount-rules` 不要求 agent 理解專案路徑與程式結構，也能給非程式碼 client 使用；內容可隨 server 一起版本控制。不過靜態規則會和 service 形成兩份真相，折扣邏輯改版時必須同步更新，較好的長期作法是從同一規則來源動態產生內容。
+- Prompt 是替使用者表達任務的共用範本。放在 server 後，團隊共用相同流程與參數，規則改版只需更新一處並留下版本紀錄；若每個人各自輸入，容易漏步驟或產生不同版本。
+- Prompt 只能編排既有能力，不能補出 server 沒提供的資料。本次報告暴露「缺少依商品查近期訂單」的能力缺口，這比讓 agent 猜測資料更安全，也能作為未來工具設計的依據。
+
+### 自動驗證
+
+- `dotnet build src/OrderHub.Mcp -m:1`：成功，0 warning、0 error。
+- `dotnet test --no-restore -m:1`：34/34 通過。
