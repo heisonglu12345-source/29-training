@@ -33,3 +33,24 @@
 ### 結論
 
 差異不只在工具呼叫次數，而在介面的語意與資料量。沒有專用 MCP 時，agent 取得的是通用網頁資料，必須自行推斷如何解析；有 MCP 時，工具名稱、description、參數 schema 與精簡回傳已把任務意圖說清楚，流程較穩定，也更容易在不同 agent 之間重用。
+
+## 活動 2／練習 4 — 會修改資料的 `cancel_order`
+
+### 工具與 annotations
+
+- `cancel_order` 只轉接 `OrderService.CancelOrderAsync`，沒有在 MCP 層重複實作狀態檢查或庫存回補規則。
+- MCP Inspector 2.1.0 的 `tools/list` 顯示：`get_order`、`low_stock`、`customer_orders` 都是 `readOnlyHint=true`；`cancel_order` 是 `destructiveHint=true`、`idempotentHint=false`。
+- Codex 專案設定將 `cancel_order` 的 `approval_mode` 設為 `prompt`，讓 client 在執行資料異動前要求確認。
+
+### 權限確認與資料驗證
+
+- 測試訂單：`#209`，狀態為 Pending，包含 SKU-1002「極光 機械鍵盤」2 件；取消前商品庫存為 100。
+- 未允許時，Codex 顯示 `user cancelled MCP tool call`。回到訂單與商品頁確認，訂單仍是「待處理」，庫存仍為 100，資料沒有改動。
+- 允許後，agent 只呼叫一次 `mcp__orderhub__cancel_order(id=209)`，回傳「訂單 209 已取消，庫存已回補」。
+- 回到 `/Orders/Details/209` 與 `/Products` 核對：訂單已是「已取消」，SKU-1002 庫存由 100 回補為 102。
+- 對同一筆訂單再次呼叫，得到「取消失敗：狀態為 Cancelled 的訂單不可取消」，沒有 exception dump，庫存也不會重複回補。
+
+### 自動驗證
+
+- `dotnet build src/OrderHub.Mcp -m:1`：成功，0 warning、0 error。
+- `dotnet test --no-restore -m:1`：34/34 通過；既有取消訂單測試涵蓋 Pending／Confirmed 成功、庫存回補、Shipped／Cancelled 拒絕與不存在訂單。
