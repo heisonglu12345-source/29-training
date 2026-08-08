@@ -1,0 +1,7 @@
+[mcp_servers.playwright]
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+
+[mcp_servers.orderhub]
+command = "dotnet"
+args = ["run", "--project", "src/OrderHub.Mcp", "--no-build"]
