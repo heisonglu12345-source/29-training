@@ -14,6 +14,16 @@ prefix_rule(
     decision = "forbidden",
     justification = "此操作會遺失尚未提交的變更",
 )
+prefix_rule(
+    pattern = ["dotnet", "user-secrets"],
+    decision = "forbidden",
+    justification = "禁止 agent 讀取或修改 .NET user-secrets；請由使用者在外部終端機管理",
+    match = [
+        "dotnet user-secrets list --project src/OrderHub.Web",
+        "dotnet user-secrets set Gemini:ApiKey placeholder --project src/OrderHub.Web",
+    ],
+    not_match = ["dotnet build src/OrderHub.Web"],
+)
 
 # 重大操作：必須由使用者確認
 prefix_rule(

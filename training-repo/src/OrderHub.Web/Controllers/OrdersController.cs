@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using OrderHub.Core.Ai;
 using OrderHub.Core.Domain;
 using OrderHub.Core.Services;
 using OrderHub.Web.Helpers;
@@ -12,17 +13,55 @@ public class OrdersController : Controller
     private const int PageSize = 20;
 
     private readonly IOrderService _orderService;
+    private readonly IOrderSearchService _orderSearchService;
     private readonly ICustomerService _customerService;
     private readonly IProductService _productService;
 
     public OrdersController(
         IOrderService orderService,
+        IOrderSearchService orderSearchService,
         ICustomerService customerService,
         IProductService productService)
     {
         _orderService = orderService;
+        _orderSearchService = orderSearchService;
         _customerService = customerService;
         _productService = productService;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Search(string? q, CancellationToken cancellationToken)
+    {
+        var vm = new OrderSearchViewModel { Query = q ?? string.Empty };
+        if (string.IsNullOrWhiteSpace(q))
+            return View(vm);
+
+        try
+        {
+            var result = await _orderSearchService.SearchAsync(q, cancellationToken);
+            if (!result.Success)
+            {
+                vm.ErrorMessage = result.ErrorMessage;
+            }
+            else
+            {
+                vm.Orders = result.Value!.Select(o => new OrderRowViewModel
+                {
+                    Id = o.Id,
+                    CustomerName = o.Customer?.Name ?? "-",
+                    Status = o.Status,
+                    Total = _orderService.CalculateTotal(o),
+                    ItemCount = o.Items.Count,
+                    CreatedAt = o.CreatedAt
+                }).ToList();
+            }
+        }
+        catch (AiServiceUnavailableException ex)
+        {
+            vm.ErrorMessage = ex.Message;
+        }
+
+        return View(vm);
     }
 
     public async Task<IActionResult> Index(int page = 1, OrderStatus? status = null)
